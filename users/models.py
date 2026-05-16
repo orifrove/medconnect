@@ -90,3 +90,9 @@ class PatientProfile(models.Model):
 
     def __str__(self):
         return f'Пациент: {self.user.get_full_name()}'
+    
+def create_superuser(self, email, username, password, **extra_fields):
+    extra_fields.setdefault('role', CustomUser.Role.DOCTOR)
+    extra_fields.setdefault('is_staff', True)
+    extra_fields.setdefault('is_superuser', True)
+    return self.create_user(email, password=password, username=username, **extra_fields)
