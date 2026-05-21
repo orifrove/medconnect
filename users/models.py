@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
@@ -11,6 +11,23 @@ def patient_photo_path(instance, filename):
     return f'patients/{instance.user.id}/{filename}'
 
 
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, username, password=None, **extra_fields):
+        if not email:
+            raise ValueError('Email обязателен')
+        email = self.normalize_email(email)
+        user = self.model(email=email, username=username, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, username, password=None, **extra_fields):
+        extra_fields.setdefault('role', 'doctor')
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, username, password, **extra_fields)
+
+
 class CustomUser(AbstractUser):
     class Role(models.TextChoices):
         DOCTOR = 'doctor', 'Врач'
@@ -20,8 +37,10 @@ class CustomUser(AbstractUser):
     email = models.EmailField(unique=True, verbose_name='Email')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
 
+    objects = CustomUserManager()
+
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'role']
+    REQUIRED_FIELDS = ['username']
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -40,7 +59,7 @@ class CustomUser(AbstractUser):
 
 
 class DoctorProfile(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='doctor_profile', verbose_name='Пользователь')
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='doctor_profile')
     specialization = models.CharField(max_length=100, verbose_name='Специализация')
     license_number = models.CharField(max_length=50, unique=True, verbose_name='Номер лицензии')
     experience_years = models.PositiveIntegerField(default=0, verbose_name='Опыт (лет)')
@@ -76,7 +95,7 @@ class PatientProfile(models.Model):
         O_POS = 'O+', 'O+'
         O_NEG = 'O-', 'O-'
 
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='patient_profile', verbose_name='Пользователь')
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='patient_profile')
     date_of_birth = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
     blood_type = models.CharField(max_length=3, choices=BloodType.choices, null=True, blank=True, verbose_name='Группа крови')
     allergies = models.TextField(blank=True, verbose_name='Аллергии')
@@ -90,9 +109,3 @@ class PatientProfile(models.Model):
 
     def __str__(self):
         return f'Пациент: {self.user.get_full_name()}'
-    
-def create_superuser(self, email, username, password, **extra_fields):
-    extra_fields.setdefault('role', CustomUser.Role.DOCTOR)
-    extra_fields.setdefault('is_staff', True)
-    extra_fields.setdefault('is_superuser', True)
-    return self.create_user(email, password=password, username=username, **extra_fields)
