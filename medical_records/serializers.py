@@ -10,8 +10,13 @@ class MedicalRecordSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
     def validate_appointment(self, value):
+        request = self.context['request']
+
         if value.status != 'completed':
             raise serializers.ValidationError('Можно создать карту только для завершённого приёма')
+
+        if value.doctor.user != request.user:
+            raise serializers.ValidationError('Это не ваш приём')
 
         if hasattr(value, 'medical_record'):
             raise serializers.ValidationError('Карта для этого приёма уже существует')
@@ -48,4 +53,6 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data['patient'] = self.context['request'].user
-        return super().create(validated_data)
+        review = super().create(validated_data)
+        review.doctor.update_rating()
+        return review

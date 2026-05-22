@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
+from django.db import transaction
 from .models import TimeSlot, Appointment
 from users.serializers import DoctorProfileSerializer, UserSerializer
 
@@ -10,7 +11,7 @@ class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeSlot
         fields = ['id', 'doctor', 'start_time', 'end_time', 'is_booked', 'is_future']
-        read_only_fields = ['is_booked']
+        read_only_fields = ['is_booked', 'doctor']
 
     def validate(self, attrs):
         if attrs['start_time'] >= attrs['end_time']:
@@ -18,15 +19,6 @@ class TimeSlotSerializer(serializers.ModelSerializer):
 
         if attrs['start_time'] < timezone.now():
             raise serializers.ValidationError('Нельзя создать слот в прошлом')
-
-        overlapping = TimeSlot.objects.filter(
-            doctor=attrs['doctor'],
-            start_time__lt=attrs['end_time'],
-            end_time__gt=attrs['start_time']
-        ).exists()
-
-        if overlapping:
-            raise serializers.ValidationError('У врача уже есть слот в это время')
 
         return attrs
 
@@ -45,9 +37,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         time_slot = attrs['time_slot']
         request = self.context['request']
-
-        if time_slot.is_booked:
-            raise serializers.ValidationError('Этот слот уже занят')
 
         if not time_slot.is_future:
             raise serializers.ValidationError('Нельзя записаться на прошедшее время')
@@ -70,11 +59,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
         request = self.context['request']
         validated_data['patient'] = request.user
 
-        time_slot = validated_data['time_slot']
-        time_slot.is_booked = True
-        time_slot.save(update_fields=['is_booked'])
-
-        return super().create(validated_data)
+        with transaction.atomic():
+            time_slot = TimeSlot.objects.select_for_update().get(
+                pk=validated_data['time_slot'].pk
+            )
+            if time_slot.is_booked:
+                raise serializers.ValidationError('Слот уже занят')
+            time_slot.is_booked = True
+            time_slot.save(update_fields=['is_booked'])
+            validated_data['time_slot'] = time_slot
+            return super().create(validated_data)
 
 
 class AppointmentCancelSerializer(serializers.Serializer):

@@ -32,11 +32,12 @@ class UserSerializer(serializers.ModelSerializer):
 class RegisterDoctorSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
-    profile = DoctorProfileSerializer()
+    doctor_profile = DoctorProfileSerializer()
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'username', 'first_name', 'last_name', 'password', 'password2', 'profile']
+        fields = ['email', 'username', 'first_name', 'last_name',
+                  'password', 'password2', 'doctor_profile']
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -44,26 +45,28 @@ class RegisterDoctorSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        profile_data = validated_data.pop('profile')
+        profile_data = validated_data.pop('doctor_profile')
         validated_data.pop('password2')
-
         user = CustomUser.objects.create_user(
             **validated_data,
             role=CustomUser.Role.DOCTOR
         )
-
         DoctorProfile.objects.create(user=user, **profile_data)
         return user
+
+    def to_representation(self, instance):
+        return UserSerializer(instance).data
 
 
 class RegisterPatientSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
-    profile = PatientProfileSerializer(required=False)
+    patient_profile = PatientProfileSerializer(required=False)
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'username', 'first_name', 'last_name', 'password', 'password2', 'profile']
+        fields = ['email', 'username', 'first_name', 'last_name',
+                  'password', 'password2', 'patient_profile']
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -71,13 +74,14 @@ class RegisterPatientSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        profile_data = validated_data.pop('profile', {})
+        profile_data = validated_data.pop('patient_profile', {})
         validated_data.pop('password2')
-
         user = CustomUser.objects.create_user(
             **validated_data,
             role=CustomUser.Role.PATIENT
         )
-
         PatientProfile.objects.create(user=user, **profile_data)
         return user
+
+    def to_representation(self, instance):
+        return UserSerializer(instance).data

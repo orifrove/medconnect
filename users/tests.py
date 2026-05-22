@@ -17,7 +17,7 @@ class RegisterTests(TestCase):
             'last_name': 'Иванов',
             'password': 'StrongPass123!',
             'password2': 'StrongPass123!',
-            'profile': {
+            'doctor_profile': {
                 'specialization': 'Кардиолог',
                 'license_number': 'LIC-001',
                 'experience_years': 5,
@@ -53,7 +53,7 @@ class RegisterTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_login(self):
-        user = CustomUser.objects.create_user(
+        CustomUser.objects.create_user(
             email='login@test.com',
             username='loginuser',
             password='StrongPass123!',

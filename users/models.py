@@ -77,10 +77,11 @@ class DoctorProfile(models.Model):
     def __str__(self):
         return f'Др. {self.user.get_full_name()} — {self.specialization}'
 
-    def update_rating(self, new_score):
-        total_score = float(self.rating) * self.reviews_count + new_score
-        self.reviews_count += 1
-        self.rating = round(total_score / self.reviews_count, 2)
+    def update_rating(self):
+        from django.db.models import Avg, Count
+        result = self.reviews.aggregate(avg=Avg('score'), count=Count('id'))
+        self.rating = round(result['avg'] or 0, 2)
+        self.reviews_count = result['count']
         self.save(update_fields=['rating', 'reviews_count'])
 
 

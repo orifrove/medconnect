@@ -34,7 +34,3 @@ class Review(models.Model):
 
     def __str__(self):
         return f'{self.patient.email} → {self.doctor} : {self.score}★'
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.doctor.update_rating(self.score)
